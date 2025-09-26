@@ -1,5 +1,3 @@
--- MADE BY RIP#6666
--- send issues or suggestions to my discord: discord.gg/rips
 
 if not _G.Ignore then
     _G.Ignore = {} -- Add Instances to this table to ignore them (e.g. _G.Ignore = {workspace.Map, workspace.Map2})
