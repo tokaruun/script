@@ -18,6 +18,8 @@ local Net = require(ReplicatedStorage.Modules.Net)
 local Remotes = {}
 local Assets = ReplicatedStorage:WaitForChild("Assets")
 
+
+-- Initialize Remotes
 for _, child in ipairs(ReplicatedStorage:WaitForChild("Remotes"):GetChildren()) do
     if child:IsA("RemoteEvent") then
         local id = child:GetAttribute("Id")
@@ -37,16 +39,16 @@ ReplicatedStorage.Remotes.ChildAdded:Connect(function(child)
 end)
 
 local function GetClosestEnemy()
-    local character = LocalPlayer.Character
-    if not character then return nil end
+    local Characterss = LocalPlayer.Characterss
+    if not Characterss then return nil end
     
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local rootPart = Characterss:FindFirstChild("HumanoidRootPart")
     if not rootPart then return nil end
 
     local closestEnemy = nil
     local shortestDistance = 15 -- Max range
 
-    for _, enemy in ipairs(workspace.Enemies.Characters:GetChildren()) do
+    for _, enemy in ipairs(workspace.Enemies.Charactersss:GetChildren()) do
         local humanoid = enemy:FindFirstChild("Humanoid")
         local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
         
@@ -62,10 +64,10 @@ local function GetClosestEnemy()
 end
 
 local function Attack()
-    local character = LocalPlayer.Character
-    if not character then return end
+    local Characterss = LocalPlayer.Characterss
+    if not Characterss then return end
     
-    local tool = character:FindFirstChildOfClass("Tool")
+    local tool = Characterss:FindFirstChildOfClass("Tool")
     if not tool or tool:GetAttribute("WeaponType") ~= "Melee" then return end
 
     local enemy = GetClosestEnemy()
@@ -80,19 +82,21 @@ local function Attack()
     end
 end
 
+
 task.spawn(function()
     while true do
         Attack()
-        task.wait(0.1)
+        task.wait() -- CHỈNH: Chờ tối thiểu để lặp nhanh nhất
     end
 end)
+
 local function GetBladeHits()
     local targets = {}
     local function GetDistance(v)
-        return (v.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+        return (v.Position - game.Players.LocalPlayer.Characterss.HumanoidRootPart.Position).Magnitude
     end
     
-    for _, part in pairs({game.Workspace.Enemies, game.Workspace.Characters}) do
+    for _, part in pairs({game.Workspace.Enemies, game.Workspace.Charactersss}) do
         for _, v in pairs(part:GetChildren()) do
             if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Head") and v:FindFirstChild("Humanoid") then
                 if GetDistance(v.HumanoidRootPart) < 60 then
@@ -107,10 +111,10 @@ end
 
 local function AttackAll()
     local player = game.Players.LocalPlayer
-    local character = player.Character
-    if not character then return end
+    local Characterss = player.Characterss
+    if not Characterss then return end
 
-    local equippedWeapon = character:FindFirstChild("EquippedWeapon")
+    local equippedWeapon = Characterss:FindFirstChild("EquippedWeapon")
     if not equippedWeapon then return end
 
 
@@ -141,8 +145,8 @@ local Config = {
     AttackDistance = 65,
     AttackMobs = true,
     AttackPlayers = true,
-    AttackCooldown = 0.2,
-    ComboResetTime = 0.3,
+    AttackCooldown = 0, -- CHỈNH: Loại bỏ cooldown nội tại
+    ComboResetTime = 0.4,
     MaxCombo = 4,
     HitboxLimbs = {"RightLowerArm", "RightUpperArm", "LeftLowerArm", "LeftUpperArm", "RightHand", "LeftHand"},
     AutoClickEnabled = true
@@ -181,9 +185,9 @@ function FastAttack:IsEntityAlive(entity)
     return humanoid and humanoid.Health > 0
 end
 
-function FastAttack:CheckStun(Character, Humanoid, ToolTip)
-    local Stun = Character:FindFirstChild("Stun")
-    local Busy = Character:FindFirstChild("Busy")
+function FastAttack:CheckStun(Characterss, Humanoid, ToolTip)
+    local Stun = Characterss:FindFirstChild("Stun")
+    local Busy = Characterss:FindFirstChild("Busy")
     if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Blox Fruit") then
         return false
     elseif Stun and Stun.Value > 0 or Busy and Busy.Value then
@@ -192,14 +196,14 @@ function FastAttack:CheckStun(Character, Humanoid, ToolTip)
     return true
 end
 
-function FastAttack:GetBladeHits(Character, Distance)
-    local Position = Character:GetPivot().Position
+function FastAttack:GetBladeHits(Characterss, Distance)
+    local Position = Characterss:GetPivot().Position
     local BladeHits = {}
     Distance = Distance or Config.AttackDistance
     
     local function ProcessTargets(Folder, CanAttack)
         for _, Enemy in ipairs(Folder:GetChildren()) do
-            if Enemy ~= Character and self:IsEntityAlive(Enemy) then
+            if Enemy ~= Characterss and self:IsEntityAlive(Enemy) then
                 local BasePart = Enemy:FindFirstChild(Config.HitboxLimbs[math.random(#Config.HitboxLimbs)]) or Enemy:FindFirstChild("HumanoidRootPart")
                 if BasePart and (Position - BasePart.Position).Magnitude <= Distance then
                     if not self.EnemyRootPart then
@@ -213,17 +217,17 @@ function FastAttack:GetBladeHits(Character, Distance)
     end
     
     if Config.AttackMobs then ProcessTargets(Workspace.Enemies) end
-    if Config.AttackPlayers then ProcessTargets(Workspace.Characters, true) end
+    if Config.AttackPlayers then ProcessTargets(Workspace.Charactersss, true) end
     
     return BladeHits
 end
 
-function FastAttack:GetClosestEnemy(Character, Distance)
-    local BladeHits = self:GetBladeHits(Character, Distance)
+function FastAttack:GetClosestEnemy(Characterss, Distance)
+    local BladeHits = self:GetBladeHits(Characterss, Distance)
     local Closest, MinDistance = nil, math.huge
     
     for _, Hit in ipairs(BladeHits) do
-        local Magnitude = (Character:GetPivot().Position - Hit[2].Position).Magnitude
+        local Magnitude = (Characterss:GetPivot().Position - Hit[2].Position).Magnitude
         if Magnitude < MinDistance then
             MinDistance = Magnitude
             Closest = Hit[2]
@@ -241,13 +245,13 @@ function FastAttack:GetCombo()
 end
 
 function FastAttack:ShootInTarget(TargetPosition)
-    local Character = Player.Character
-    if not self:IsEntityAlive(Character) then return end
+    local Characterss = Player.Characterss
+    if not self:IsEntityAlive(Characterss) then return end
     
-    local Equipped = Character:FindFirstChildOfClass("Tool")
+    local Equipped = Characterss:FindFirstChildOfClass("Tool")
     if not Equipped or Equipped.ToolTip ~= "Gun" then return end
     
-    local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0.3
+    local Cooldown = 0 -- CHỈNH: Ép cooldown súng về 0
     if (tick() - self.ShootDebounce) < Cooldown then return end
     
     local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
@@ -263,7 +267,7 @@ function FastAttack:ShootInTarget(TargetPosition)
         self.ShootDebounce = tick()
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        task.wait(0.05)
+        task.wait() -- CHỈNH: Giảm delay click súng
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
         self.ShootDebounce = tick()
     end
@@ -296,12 +300,12 @@ function FastAttack:GetValidator2()
     return math.floor(v9 / v4 * 16777215), v7
 end
 
-function FastAttack:UseNormalClick(Character, Humanoid, Cooldown)
+function FastAttack:UseNormalClick(Characterss, Humanoid, Cooldown)
     self.EnemyRootPart = nil
-    local BladeHits = self:GetBladeHits(Character)
+    local BladeHits = self:GetBladeHits(Characterss)
     
     if self.EnemyRootPart then
-        RegisterAttack:FireServer(Cooldown)
+        RegisterAttack:FireServer(0) -- CHỈNH: Gửi cooldown 0 lên server
         if self.CombatFlags and self.HitFunction then
             self.HitFunction(self.EnemyRootPart, BladeHits)
         else
@@ -310,42 +314,43 @@ function FastAttack:UseNormalClick(Character, Humanoid, Cooldown)
     end
 end
 
-function FastAttack:UseFruitM1(Character, Equipped, Combo)
-    local Targets = self:GetBladeHits(Character)
+function FastAttack:UseFruitM1(Characterss, Equipped, Combo)
+    local Targets = self:GetBladeHits(Characterss)
     if not Targets[1] then return end
     
-    local Direction = (Targets[1][2].Position - Character:GetPivot().Position).Unit
+    local Direction = (Targets[1][2].Position - Characterss:GetPivot().Position).Unit
     Equipped.LeftClickRemote:FireServer(Direction, Combo)
 end
 
 function FastAttack:Attack()
-    if not Config.AutoClickEnabled or (tick() - self.Debounce) < Config.AttackCooldown then return end
-    local Character = Player.Character
-    if not Character or not self:IsEntityAlive(Character) then return end
+    -- CHỈNH: Loại bỏ kiểm tra tick() để đánh liên tục
+    local Characterssss = Player.Characterss
+    if not Characterssss or not self:IsEntityAlive(Characterss) then return end
     
-    local Humanoid = Character.Humanoid
-    local Equipped = Character:FindFirstChildOfClass("Tool")
+    local Humanoid = Characterss.Humanoid
+    local Equipped = Characterss:FindFirstChildOfClass("Tool")
     if not Equipped then return end
     
     local ToolTip = Equipped.ToolTip
     if not table.find({"Melee", "Blox Fruit", "Sword", "Gun"}, ToolTip) then return end
     
-    local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or Config.AttackCooldown
-    if not self:CheckStun(Character, Humanoid, ToolTip) then return end
+    -- CHỈNH: Cooldown nội tại ép về 0
+    local Cooldown = 0 
+    if not self:CheckStun(Characterss, Humanoid, ToolTip) then return end
     
     local Combo = self:GetCombo()
-    Cooldown = Cooldown + (Combo >= Config.MaxCombo and 0.05 or 0)
-    self.Debounce = Combo >= Config.MaxCombo and ToolTip ~= "Gun" and (tick() + 0.05) or tick()
+    -- CHỈNH: Loại bỏ cộng thêm giây khi đạt MaxCombo
+    self.Debounce = tick()
     
     if ToolTip == "Blox Fruit" and Equipped:FindFirstChild("LeftClickRemote") then
-        self:UseFruitM1(Character, Equipped, Combo)
+        self:UseFruitM1(Characterss, Equipped, Combo)
     elseif ToolTip == "Gun" then
-        local Target = self:GetClosestEnemy(Character, 120)
+        local Target = self:GetClosestEnemy(Characterss, 120)
         if Target then
             self:ShootInTarget(Target.Position)
         end
     else
-        self:UseNormalClick(Character, Humanoid, Cooldown)
+        self:UseNormalClick(Characterss, Humanoid, Cooldown)
     end
 end
 
