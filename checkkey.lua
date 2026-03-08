@@ -123,6 +123,3 @@ else
     return false
 end
 
-if getgenv().KeySuccess then
-    -- code
-end
