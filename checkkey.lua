@@ -3,7 +3,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 
-local API_URL = "https://0e6f5509-bb49-4af7-8ea9-e0cc819afee5-00-hjx7e0aysz1r.pike.replit.dev:5000"
+local API_URL = "https://whitelist-api-1ght.onrender.com/"
 local maxRetries = 3
 local retryDelay = 2
 
