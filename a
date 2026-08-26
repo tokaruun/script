@@ -1,0 +1,136 @@
+const axios = require('axios');
+const fs = require('fs');
+const dns = require('dns'); // Thêm thư viện cấu hình mạng gốc của Node
+dns.setDefaultResultOrder('ipv4first');
+
+function normalizeName(name) {
+    return String(name).replace(/\s+/g, '').toLowerCase();
+}
+
+function pushServer(groups, name, entry) {
+    const key = normalizeName(name);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(entry);
+}
+
+function saveToApi(name, dataList) {
+    if (!fs.existsSync('api')) fs.mkdirSync('api');
+    const fileName = `api/${name}.json`;
+    fs.writeFileSync(fileName, JSON.stringify(dataList, null, 2));
+    console.log(`Đã lưu ${dataList.length} mục vào ${fileName}`);
+}
+
+// --- DISCORD CHANNEL READER ---
+const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN || '';
+const DISCORD_CHANNELS = {
+    'castle-raid': process.env.DISCORD_CHANNEL_CASTLE_RAID_ID || '1541832985362300978',
+    mirage: process.env.DISCORD_CHANNEL_MIRAGE_ID || '1541832671389417522',
+    boss: process.env.DISCORD_CHANNEL_BOSS_ID || '1541832629849038859',
+    'full-moon': process.env.DISCORD_CHANNEL_FULL_MOON_ID || '1541832748493447289',
+    fruits: process.env.DISCORD_CHANNEL_FRUITS_ID || '1541832908283715714'
+};
+
+if (!DISCORD_TOKEN) {
+    console.error('Thiếu DISCORD_BOT_TOKEN; scraper không thể đọc Discord channels.');
+}
+
+const DISCORD_TYPE_ALIASES = {
+    castleraid: 'castle-raid',
+    raidcastle: 'castle-raid',
+    raid: 'castle-raid',
+    fullmoon: 'full-moon',
+    fruit: 'fruits'
+};
+
+function normalizeDiscordType(name) {
+    const normalized = normalizeName(name);
+    if (DISCORD_TYPE_ALIASES[normalized]) return DISCORD_TYPE_ALIASES[normalized];
+    if (normalized.includes('mirage')) return 'mirage';
+    if (normalized.includes('pirateraid') || normalized.includes('castleonthesea')) {
+        return 'castle-raid';
+    }
+    if (
+        normalized.includes('boss') ||
+        normalized.includes('cakeprince') ||
+        normalized.includes('cakequeen') ||
+        normalized.includes('cursedcaptain')
+    ) return 'boss';
+    if (normalized.includes('fullmoon')) return 'full-moon';
+    if (normalized.includes('fruit')) return 'fruits';
+    return normalized;
+}
+
+function getEmbedField(embed, label) {
+    const field = (embed.fields || []).find(item => normalizeName(item.name).includes(normalizeName(label)));
+    return field?.value?.trim() || '';
+}
+
+function getEventType(channelType, embed) {
+    const title = normalizeDiscordType(embed.title || '');
+    if (channelType === 'boss') return normalizeName(getEmbedField(embed, 'Boss Name')) || 'boss';
+    if (channelType === 'fruits') return normalizeName(getEmbedField(embed, 'Fruit Name')) || 'fruitspawned';
+    if (channelType === 'castle-raid') return 'raidcastle';
+    if (channelType === 'mirage') return 'mirage';
+    if (channelType === 'full-moon') return 'fullmoon';
+    return title || channelType;
+}
+
+async function readChannel(channelType, channelId) {
+    if (!DISCORD_TOKEN || !channelId) return [];
+
+    const response = await axios.get(
+        `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages?limit=100`,
+        { headers: { Authorization: `Bot ${DISCORD_TOKEN}` }, timeout: 10000 }
+    );
+
+    const groups = {};
+    for (const message of response.data || []) {
+        for (const embed of message.embeds || []) {
+            const jobId = getEmbedField(embed, 'Join Code');
+            if (!jobId) continue;
+
+            const type = getEventType(channelType, embed);
+            const players = getEmbedField(embed, 'Player Count') || '0';
+            pushServer(groups, type, {
+                jobId,
+                players: Number.parseInt(players, 10) || 0,
+                updatedAt: Date.now()
+            });
+        }
+    }
+    return groups;
+}
+
+let running = false;
+
+async function updateAll() {
+    running = true;
+    try {
+        const allGroups = {};
+
+        for (const [channelType, channelId] of Object.entries(DISCORD_CHANNELS)) {
+            try {
+                const channelGroups = await readChannel(channelType, channelId);
+                for (const [name, servers] of Object.entries(channelGroups)) {
+                    allGroups[name] = servers;
+                }
+            } catch (e) {
+                console.error(`Lỗi đọc channel ${channelType}:`, e.response?.status || e.message);
+            }
+        }
+
+        for (const name in allGroups) {
+            saveToApi(name, allGroups[name]);
+        }
+
+        console.log('--- Đã đọc xong Discord channels! ---');
+    } finally {
+        running = false;
+    }
+}
+
+setInterval(() => {
+    if (running) return;
+    updateAll().catch(e => console.error("updateAll lỗi:", e.message));
+}, 5000);
+updateAll().catch(e => console.error("updateAll lỗi:", e.message));
